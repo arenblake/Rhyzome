@@ -219,8 +219,6 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
 		t = tick.Process();
 
-		tick.SetFreq(hw.knob[7].Process() * 10);
-
 		setLatch();
 		setParams();
 
@@ -281,6 +279,8 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 				float driveRange = fclamp(drumStates[4].kvals[4], 0.25, 0.95);
 				drive.SetDrive(driveRange);
 
+				tick.SetFreq(drumStates[4].kvals[7] * 10);
+
 				break;
 			}
 
@@ -313,7 +313,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		sig = comp.Process(sig);
 		sig = drive.Process(sig);
 
-		limiter.ProcessBlock(&sig, 1, 10);
+		limiter.ProcessBlock(&sig, 1, 2);
 
         out[0][i] = out[1][i] = sig;
 	}
@@ -327,7 +327,7 @@ int main(void)
 
 	float sample_rate = hw.AudioSampleRate();
 
-    tick.Init(2.f, sample_rate);
+    tick.Init(8.f, sample_rate);
 
     bd.Init(sample_rate);
     drumStates[0].kvals[0] = 0.15;
@@ -369,6 +369,8 @@ int main(void)
 	drumStates[4].kvals[3] = 0.3;
 	drumStates[4].kvals[4] = 0.0;
 	drumStates[4].kvals[5] = 0.28;
+
+	drumStates[4].kvals[7] = 0.8;
 
 	limiter.Init();
 
