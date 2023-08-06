@@ -169,6 +169,7 @@ void displayMenu() {
 		displayParamLabel("cmpA", hw.display.Width() / 2 + 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() * 0.75 + 5, 15);
 		displayParamLabel("drv", 8, 41);
+		displayParamLabel("tmpo", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	}
 }

@@ -10,10 +10,10 @@ Rhyzome is a drum machine built on Daisy Field. It features four drum engines, a
 
 ## Controls
 
-| Control     | Description           | Comment                                                             |
-| ----------- | --------------------- | ------------------------------------------------------------------- |
-| Knob 1-7    | Drum Engine params    | Control various drum engine params, see Rhyzome display for details |
-| Knob 8      | Control Tempo         |                                                                     |
-| Switch 1    | Nav Left              | Nagigate through drum engine menus/sequencers                       |
-| Switch 2    | Nav Right             | Nagigate through drum engine menus/sequencers                       |
-| SW 1 + SW 2 | Enter Master Bus menu |                                                                     |
+| Control           | Description           | Comment                                                             |
+| ----------------- | --------------------- | ------------------------------------------------------------------- |
+| Knob 1-7          | Drum Engine params    | Control various drum engine params, see Rhyzome display for details |
+| Mstr Bus - Knob 8 | Control Tempo         | Navigate to master bus menu to control tempo                        |
+| Switch 1          | Nav Left              | Nagigate through drum engine menus/sequencers                       |
+| Switch 2          | Nav Right             | Nagigate through drum engine menus/sequencers                       |
+| SW 1 + SW 2       | Enter Master Bus menu |                                                                     |
