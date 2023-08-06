@@ -137,6 +137,8 @@ void displayMenu() {
 		displayParamLabel("acc", 7, 41);
 		displayParamLabel("fmAmt", hw.display.Width() / 4 + 1, 41);
 		displayParamLabel("fmDky", hw.display.Width() / 2 + 1, 41);
+
+		displayParamLabel("Gain", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	case 1:
 		buildString("Snare");
@@ -145,6 +147,8 @@ void displayMenu() {
 		displayParamLabel("acc", hw.display.Width() / 2 + 8, 15);
 		displayParamLabel("snap", hw.display.Width() * 0.75 + 4, 15);
 		displayParamLabel("fmAmt", 1, 41);
+
+		displayParamLabel("Gain", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	case 2:
 		buildString("Hi-Hat");
@@ -153,6 +157,8 @@ void displayMenu() {
 		displayParamLabel("acc", hw.display.Width() / 2 + 8, 15);
 		displayParamLabel("tone", hw.display.Width() * 0.75 + 4, 15);
 		displayParamLabel("noiz", 5, 41);
+
+		displayParamLabel("Gain", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	case 3:
 		buildString("Cymbal");
@@ -161,6 +167,8 @@ void displayMenu() {
 		displayParamLabel("acc", hw.display.Width() / 2 + 8, 15);
 		displayParamLabel("tone", hw.display.Width() * 0.75 + 4, 15);
 		displayParamLabel("noiz", 5, 41);
+
+		displayParamLabel("Gain", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	case 4:
 		buildString("Master Bus");
@@ -306,10 +314,10 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		float hatSig = hh.Process(hatTrig);
 		float cymbalSig = cymbal.Process(cymbalTrig);
 
-		float sig = bassSig * 0.5;
-		sig += snareSig * 0.1;
-		sig += hatSig * 0.2;
-		sig += cymbalSig * 0.2;
+		float sig = bassSig * drumStates[0].kvals[7];
+		sig += snareSig * drumStates[1].kvals[7];
+		sig += hatSig * drumStates[2].kvals[7];
+		sig += cymbalSig * drumStates[3].kvals[7];
 
 		sig = comp.Process(sig);
 		sig = drive.Process(sig);
@@ -338,6 +346,7 @@ int main(void)
 	drumStates[0].kvals[4] = 1.0;
 	drumStates[0].kvals[5] = 0.23;
 	drumStates[0].kvals[6] = 0.56;
+	drumStates[0].kvals[7] = 0.5;
 
 	sd.Init(sample_rate);
 	drumStates[1].kvals[0] = 0.2;
@@ -345,13 +354,15 @@ int main(void)
 	drumStates[1].kvals[2] = 1.0;
 	drumStates[1].kvals[3] = 0.73;
 	drumStates[1].kvals[4] = 0.48;
+	drumStates[1].kvals[7] = 0.1;
 
 	hh.Init(sample_rate);
 	drumStates[2].kvals[0] = 0.28;
 	drumStates[2].kvals[1] = 0.46;
 	drumStates[2].kvals[2] = 0.12;
 	drumStates[2].kvals[3] = 0.77;
-	drumStates[2].kvals[3] = 0.63;
+	drumStates[2].kvals[4] = 0.63;
+	drumStates[2].kvals[7] = 0.2;
 
 	cymbal.Init(sample_rate);
 	drumStates[3].kvals[0] = 0.1;
@@ -359,6 +370,7 @@ int main(void)
 	drumStates[3].kvals[2] = 0.4;
 	drumStates[3].kvals[3] = 0.88;
 	drumStates[3].kvals[4] = 0.61;
+	drumStates[3].kvals[7] = 0.2;
 
 	comp.Init(sample_rate);
 	drive.Init();
