@@ -29,7 +29,7 @@ struct DrumState {
 
 DrumState drumStates[MENU_COUNT];
 
-int selectedMenu {0};
+int selectedMenu {MENU_COUNT - 1};
 
 size_t keyboard_leds[] = {
 	DaisyField::LED_KEY_B1,
@@ -54,6 +54,9 @@ void handleButton() {
 	for(size_t i = 0; i < 16; i++)
     {
 		if (hw.KeyboardRisingEdge(i)) drumStates[selectedMenu].seq[(i + 8) % 16] = !drumStates[selectedMenu].seq[(i + 8) % 16];
+		if(selectedMenu == MENU_COUNT - 1) {
+			if (hw.KeyboardRisingEdge(8)) step = 0;
+		}
     }
 }
 
@@ -62,7 +65,7 @@ void updateLeds() {
     {
 		if (drumStates[selectedMenu].seq[i] == true) hw.led_driver.SetLed(keyboard_leds[i], 1.f);
 		if (drumStates[selectedMenu].seq[i] != true) hw.led_driver.SetLed(keyboard_leds[i], 0.f);
-		hw.led_driver.SetLed(keyboard_leds[step], 0.65f);
+		if (selectedMenu != MENU_COUNT - 1) hw.led_driver.SetLed(keyboard_leds[step], 0.65f);
     }
 
 	hw.led_driver.SwapBuffersAndTransmit();
@@ -109,6 +112,14 @@ void displayParamValues(int knob, int curX, int curY) {
 	snprintf(pStr, 4, "%d", pVal);
 	hw.display.SetCursor(curX, curY);
 	hw.display.WriteString(pStr, Font_7x10, true);
+}
+
+void displayTransport() {
+	char lStr[8];
+	sprintf(lStr, "T:%s", drumStates[4].seq[0] ? "Play" : "Stop");
+	hw.display.SetCursor(68, 0);
+	hw.display.WriteString(lStr, Font_6x8, true);
+
 }
 
 void displayMenu() {
@@ -172,6 +183,7 @@ void displayMenu() {
 		break;
 	case 4:
 		buildString("Master Bus");
+		displayTransport();
 		displayParamLabel("cmpT", 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() / 4 + 5, 15);
 		displayParamLabel("cmpA", hw.display.Width() / 2 + 5, 15);
@@ -226,7 +238,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	for (size_t i = 0; i < size; i++)
 	{
 
-		t = tick.Process();
+		if(drumStates[4].seq[0]) t = tick.Process();
 
 		setLatch();
 		setParams();
@@ -378,8 +390,8 @@ int main(void)
 	drive.SetDrive(0.25);
 	drumStates[4].kvals[0] = 1.0;
 	drumStates[4].kvals[1] = 0.0;
-	drumStates[4].kvals[2] = 0.0;
-	drumStates[4].kvals[3] = 0.3;
+	drumStates[4].kvals[2] = 0.1;
+	drumStates[4].kvals[3] = 0.15;
 	drumStates[4].kvals[4] = 0.0;
 	drumStates[4].kvals[5] = 0.28;
 
