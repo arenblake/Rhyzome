@@ -15,6 +15,9 @@ Compressor comp;
 Overdrive  drive;
 Limiter    limiter;
 
+int clockCount {0};
+long unsigned int last {System::GetNow()};
+
 int step {0};
 bool t;
 bool locked {false};
@@ -56,6 +59,11 @@ void handleButton() {
 		if (hw.KeyboardRisingEdge(i)) drumStates[selectedMenu].seq[(i + 8) % 16] = !drumStates[selectedMenu].seq[(i + 8) % 16];
 		if(selectedMenu == MENU_COUNT - 1) {
 			if (hw.KeyboardRisingEdge(8)) step = 0;
+			if (hw.KeyboardRisingEdge(9)) 
+			{
+				step = 0;
+				clockCount = 0;
+			}
 		}
     }
 }
@@ -189,6 +197,7 @@ void displayMenu() {
 		displayParamLabel("cmpA", hw.display.Width() / 2 + 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() * 0.75 + 5, 15);
 		displayParamLabel("drv", 8, 41);
+		// displayParamLabel("mdSrc", hw.display.Width() / 2 + 2, 41);
 		displayParamLabel("tmpo", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	}
@@ -230,6 +239,34 @@ void setLatch() {
 	}
 }
 
+void handleMidi() {
+	hw.midi.Listen();
+	while(hw.midi.HasEvents())
+	{
+		MidiEvent me = hw.midi.PopEvent();
+
+		if(me.srt_type == Start) {
+			clockCount = -1;
+			step = -1;
+			drumStates[4].seq[0] = true;			
+		}
+
+		if(me.srt_type == Stop) {
+			clockCount = -1;
+			step = -1;			
+			drumStates[4].seq[0] = false;	
+		}
+
+		if(me.srt_type == TimingClock && drumStates[4].seq[0]) {
+			clockCount++;
+		}
+
+		if(clockCount % 6 == 0 && drumStates[4].seq[0])  
+		{
+			step = (step + 1) % 16;
+		}
+	}
+}
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
 	hw.ProcessAllControls();
@@ -312,14 +349,28 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		bool hatTrig {false};
 		bool cymbalTrig {false};
 
-        if(t)
-        {
-			if(drumStates[0].seq[step]) bassTrig = t;
-			if(drumStates[1].seq[step]) snareTrig = t;
-			if(drumStates[2].seq[step]) hatTrig = t;
-			if(drumStates[3].seq[step]) cymbalTrig = t;
-			step = (step + 1) % 16;
-        }
+		if(drumStates[4].seq[0] && drumStates[4].seq[1]) {
+	
+			if(clockCount % 6 == 0)
+			{
+				if(System::GetNow() - last > 50) {
+				if(drumStates[0].seq[step]) bassTrig = true;
+				if(drumStates[1].seq[step]) snareTrig = true;
+				if(drumStates[2].seq[step]) hatTrig = true;
+				if(drumStates[3].seq[step]) cymbalTrig = true;
+				last = System::GetNow();
+				}
+			}
+		} else {
+			if(t)
+			{
+				if(drumStates[0].seq[step]) bassTrig = t;
+				if(drumStates[1].seq[step]) snareTrig = t;
+				if(drumStates[2].seq[step]) hatTrig = t;
+				if(drumStates[3].seq[step]) cymbalTrig = t;
+				step = (step + 1) % 16;
+			}
+		}
 
 		float bassSig = bd.Process(bassTrig);
 		float snareSig = sd.Process(snareTrig);
@@ -349,6 +400,7 @@ int main(void)
 	float sample_rate = hw.AudioSampleRate();
 
     tick.Init(8.f, sample_rate);
+
 
     bd.Init(sample_rate);
     drumStates[0].kvals[0] = 0.15;
@@ -394,6 +446,7 @@ int main(void)
 	drumStates[4].kvals[3] = 0.15;
 	drumStates[4].kvals[4] = 0.0;
 	drumStates[4].kvals[5] = 0.28;
+	drumStates[4].kvals[6] = 0.0;
 
 	drumStates[4].kvals[7] = 0.8;
 
@@ -401,10 +454,15 @@ int main(void)
 
 	hw.StartAdc();
 	hw.StartAudio(AudioCallback);
+
 	while(1) {
+		if(drumStates[4].seq[1]) handleMidi();
+		
 		updateLeds();
 		hw.display.Fill(false);
 		displayMenu();
+
+
 		hw.display.Update();
 	}
 }
