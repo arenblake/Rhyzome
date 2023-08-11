@@ -221,14 +221,10 @@ void displayDebug() {
 }
 
 void setParams() {
-	if (drumStates[selectedMenu].isLatched[0]) drumStates[selectedMenu].kvals[0] = hw.knob[0].Process();
-	if (drumStates[selectedMenu].isLatched[1]) drumStates[selectedMenu].kvals[1] = hw.knob[1].Process();
-	if (drumStates[selectedMenu].isLatched[2]) drumStates[selectedMenu].kvals[2] = hw.knob[2].Process();
-	if (drumStates[selectedMenu].isLatched[3]) drumStates[selectedMenu].kvals[3] = hw.knob[3].Process();
-	if (drumStates[selectedMenu].isLatched[4]) drumStates[selectedMenu].kvals[4] = hw.knob[4].Process();
-	if (drumStates[selectedMenu].isLatched[5]) drumStates[selectedMenu].kvals[5] = hw.knob[5].Process();
-	if (drumStates[selectedMenu].isLatched[6]) drumStates[selectedMenu].kvals[6] = hw.knob[6].Process();
-	if (drumStates[selectedMenu].isLatched[7]) drumStates[selectedMenu].kvals[7] = hw.knob[7].Process();
+	for(size_t i = 0; i < 8; i++) 
+	{
+		if (drumStates[selectedMenu].isLatched[i]) drumStates[selectedMenu].kvals[i] = hw.knob[i].Process();
+	}
 }
 
 void setLatch() {
