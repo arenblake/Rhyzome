@@ -16,7 +16,6 @@ Overdrive  drive;
 Limiter    limiter;
 
 int clockCount {0};
-float tickLength {0};
 long unsigned int last {System::GetNow()};
 
 int step {0};
@@ -242,31 +241,31 @@ void setLatch() {
 
 void handleMidi() {
 	hw.midi.Listen();
-		while(hw.midi.HasEvents())
-        {
-			MidiEvent me = hw.midi.PopEvent();
+	while(hw.midi.HasEvents())
+	{
+		MidiEvent me = hw.midi.PopEvent();
 
-			if(me.srt_type == Start) {
-				clockCount = -1;
-				step = -1;
-				drumStates[4].seq[0] = true;			
-			}
+		if(me.srt_type == Start) {
+			clockCount = -1;
+			step = -1;
+			drumStates[4].seq[0] = true;			
+		}
 
-			if(me.srt_type == Stop) {
-				clockCount = 0;
-				step = 0;			
-				drumStates[4].seq[0] = false;	
-			}
+		if(me.srt_type == Stop) {
+			clockCount = -1;
+			step = -1;			
+			drumStates[4].seq[0] = false;	
+		}
 
-			if(me.srt_type == TimingClock && drumStates[4].seq[0]) {
-				clockCount++;
-			}
+		if(me.srt_type == TimingClock && drumStates[4].seq[0]) {
+			clockCount++;
+		}
 
-			if(clockCount % 6 == 0 && drumStates[4].seq[0])  
-			{
-				step = (step + 1) % 16;
-			}
-        }
+		if(clockCount % 6 == 0 && drumStates[4].seq[0])  
+		{
+			step = (step + 1) % 16;
+		}
+	}
 }
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
@@ -457,11 +456,12 @@ int main(void)
 	hw.StartAudio(AudioCallback);
 
 	while(1) {
+		if(drumStates[4].seq[1]) handleMidi();
+		
 		updateLeds();
 		hw.display.Fill(false);
 		displayMenu();
 
-		if(drumStates[4].seq[1]) handleMidi();
 
 		hw.display.Update();
 	}
