@@ -16,14 +16,12 @@ Overdrive  drive;
 Limiter    limiter;
 
 int clockCount {0};
-// bool started {false};
 float tickLength {0};
 long unsigned int last {System::GetNow()};
 
 int step {0};
 bool t;
 bool locked {false};
-// bool externalMidi = {false};
 
 const int MENU_COUNT {5};
 
@@ -267,7 +265,6 @@ void handleMidi() {
 			if(clockCount % 6 == 0 && drumStates[4].seq[0])  
 			{
 				step = (step + 1) % 16;
-				// hw.display.DrawCircle(120,4,3,true);
 			}
         }
 }
@@ -454,8 +451,6 @@ int main(void)
 
 	drumStates[4].kvals[7] = 0.8;
 
-	// drumStates[4].seq[1] = externalMidi;
-
 	limiter.Init();
 
 	hw.StartAdc();
@@ -467,9 +462,6 @@ int main(void)
 		displayMenu();
 
 		if(drumStates[4].seq[1]) handleMidi();
-
-		// if(externalMidi) hw.display.DrawCircle(120,4,3,true);
-		if(drumStates[4].seq[1]) hw.display.DrawCircle(100,4,3,true);
 
 		hw.display.Update();
 	}
