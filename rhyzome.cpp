@@ -16,15 +16,14 @@ Overdrive  drive;
 Limiter    limiter;
 
 int clockCount {0};
-bool started {false};
+// bool started {false};
 float tickLength {0};
-long unsigned int lastTick {System::GetNow()};
 long unsigned int last {System::GetNow()};
 
 int step {0};
 bool t;
 bool locked {false};
-bool externalMidi = {true};
+// bool externalMidi = {false};
 
 const int MENU_COUNT {5};
 
@@ -63,7 +62,11 @@ void handleButton() {
 		if (hw.KeyboardRisingEdge(i)) drumStates[selectedMenu].seq[(i + 8) % 16] = !drumStates[selectedMenu].seq[(i + 8) % 16];
 		if(selectedMenu == MENU_COUNT - 1) {
 			if (hw.KeyboardRisingEdge(8)) step = 0;
-			if (hw.KeyboardRisingEdge(9)) externalMidi = !externalMidi;
+			if (hw.KeyboardRisingEdge(9)) 
+			{
+				step = 0;
+				clockCount = 0;
+			}
 		}
     }
 }
@@ -239,6 +242,35 @@ void setLatch() {
 	}
 }
 
+void handleMidi() {
+	hw.midi.Listen();
+		while(hw.midi.HasEvents())
+        {
+			MidiEvent me = hw.midi.PopEvent();
+
+			if(me.srt_type == Start) {
+				clockCount = -1;
+				step = -1;
+				drumStates[4].seq[0] = true;			
+			}
+
+			if(me.srt_type == Stop) {
+				clockCount = 0;
+				step = 0;			
+				drumStates[4].seq[0] = false;	
+			}
+
+			if(me.srt_type == TimingClock && drumStates[4].seq[0]) {
+				clockCount++;
+			}
+
+			if(clockCount % 6 == 0 && drumStates[4].seq[0])  
+			{
+				step = (step + 1) % 16;
+				// hw.display.DrawCircle(120,4,3,true);
+			}
+        }
+}
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
 	hw.ProcessAllControls();
@@ -321,7 +353,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		bool hatTrig {false};
 		bool cymbalTrig {false};
 
-		if(externalMidi && started) {
+		if(drumStates[4].seq[0] && drumStates[4].seq[1]) {
 	
 			if(clockCount % 6 == 0)
 			{
@@ -422,46 +454,22 @@ int main(void)
 
 	drumStates[4].kvals[7] = 0.8;
 
+	// drumStates[4].seq[1] = externalMidi;
+
 	limiter.Init();
 
 	hw.StartAdc();
 	hw.StartAudio(AudioCallback);
 
 	while(1) {
-		// externalMidi = drumStates[4].kvals[6] <= 0.5 ? true : false;
-		hw.midi.Listen();
-
 		updateLeds();
 		hw.display.Fill(false);
 		displayMenu();
-		while(hw.midi.HasEvents())
-        {
-			MidiEvent me = hw.midi.PopEvent();
 
-			if(me.srt_type == Start) {
-				// tick.Reset();
-				started = true;
-				step = -1;
-				drumStates[4].seq[0] = true;			
-			}
+		if(drumStates[4].seq[1]) handleMidi();
 
-			if(me.srt_type == Stop) {
-				clockCount = 0;
-				step = 0;			
-				started = false;
-				drumStates[4].seq[0] = false;	
-			}
-
-			if(me.srt_type == TimingClock && started) {
-				clockCount++;
-			}
-
-			if(clockCount % 6 == 0 && started)  
-			{
-				step = (step + 1) % 16;
-				hw.display.DrawCircle(120,4,3,true);
-			}
-        }
+		// if(externalMidi) hw.display.DrawCircle(120,4,3,true);
+		if(drumStates[4].seq[1]) hw.display.DrawCircle(100,4,3,true);
 
 		hw.display.Update();
 	}
