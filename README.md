@@ -6,7 +6,7 @@ Aren Blake
 
 ## Description
 
-Rhyzome is a drum machine built on Daisy Field. It features four drum engines, a 16 step sequencer per engine and a master bus. Master bus includes a Compressor and Drive.
+Rhyzome is a drum machine built on Daisy Field. It features four drum engines, a 16 step sequencer per engine, external midi clock synchronization and a master bus. Master bus includes a Compressor and Drive.
 
 ## Controls
 
