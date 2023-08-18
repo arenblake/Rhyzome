@@ -334,9 +334,8 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 				if(System::GetNow() - last > 50) {
 				for (size_t i = 0; i < 4; i++)
 				{
-					if(menustates[i].seq[step] && menustates[4].kvals[6] > Random::GetFloat() * 0.5) {
-						trigs[i] = true;
-						}
+					bool randVal = menustates[4].seq[i + 8] ? menustates[4].kvals[6] > Random::GetFloat() * 0.5 : true;
+					if(menustates[i].seq[step] && randVal) trigs[i] = true;
 				}
 
 				last = System::GetNow();
@@ -348,9 +347,9 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					if(menustates[i].seq[step] && menustates[4].kvals[6] > Random::GetFloat() * 0.5) {
-						trigs[i] = true;
-						}
+					bool randVal = menustates[4].seq[i + 8] ? menustates[4].kvals[6] > Random::GetFloat() * 0.5 : true;
+					if(menustates[i].seq[step] && randVal) trigs[i] = true;
+
 				}
 
 				step = (step + 1) % 16;

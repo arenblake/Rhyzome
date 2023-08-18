@@ -10,12 +10,16 @@ Rhyzome is a drum machine built on Daisy Field. It features four drum engines, a
 
 ## Controls
 
-| Control           | Description           | Comment                                                             |
-| ----------------- | --------------------- | ------------------------------------------------------------------- |
-| Knob 1-8          | Drum Engine params    | Control various drum engine params, see Rhyzome display for details |
-| Mstr Bus - Knob 8 | Control Tempo         | Navigate to master bus menu to control tempo                        |
-| Mstr Bus - A1     | Start/Stop Transport  |                                                                     |
-| Mstr Bus - A2     | Toggle External Midi  | If LED is on midi clock is external                                 |
-| Switch 1          | Nav Left              | Nagigate through drum engine menus/sequencers                       |
-| Switch 2          | Nav Right             | Nagigate through drum engine menus/sequencers                       |
-| SW 1 + SW 2       | Enter Master Bus menu |                                                                     |
+| Control           | Description             | Comment                                                             |
+| ----------------- | ----------------------- | ------------------------------------------------------------------- |
+| Knob 1-8          | Drum Engine params      | Control various drum engine params, see Rhyzome display for details |
+| Mstr Bus - Knob 8 | Control Tempo           | Navigate to master bus menu to control tempo                        |
+| Mstr Bus - A1     | Start/Stop Transport    | Automatic if midi is external                                       |
+| Mstr Bus - A2     | Toggle External Midi    | If LED is on midi clock is external                                 |
+| Mstr Bus - B1     | Toggle Trig Probability | If LED is on bass drum is affected by trig probability              |
+| Mstr Bus - B2     | Toggle Trig Probability | If LED is on snare drum is affected by trig probability             |
+| Mstr Bus - B3     | Toggle Trig Probability | If LED is on hi-hat is affected by trig probability                 |
+| Mstr Bus - B4     | Toggle Trig Probability | If LED is on cymbal is affected by trig probability                 |
+| Switch 1          | Nav Left                | Navigate through drum engine menus/sequencers                       |
+| Switch 2          | Nav Right               | Navigate through drum engine menus/sequencers                       |
+| SW 1 + SW 2       | Enter Master Bus menu   | SW 1 or SW 2 to exit                                                |
