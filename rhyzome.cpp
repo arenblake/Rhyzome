@@ -197,27 +197,10 @@ void displayMenu() {
 		displayParamLabel("cmpA", hw.display.Width() / 2 + 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() * 0.75 + 5, 15);
 		displayParamLabel("drv", 8, 41);
-		// displayParamLabel("mdSrc", hw.display.Width() / 2 + 2, 41);
+		displayParamLabel("prob", hw.display.Width() / 2 + 5, 41);
 		displayParamLabel("tmpo", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	}
-}
-
-void displayDebug() {
-	char stepStr[4];
-	snprintf(stepStr, 4, "%d", step);
-	hw.display.SetCursor(0, 0);
-	hw.display.WriteString(stepStr, Font_7x10, true);
-
-	char bassSeqStr[4];
-	snprintf(bassSeqStr, 4, "%d", int(menustates[selectedMenu].kvals[0] * 100));
-	hw.display.SetCursor(0, 12);
-	hw.display.WriteString(bassSeqStr, Font_7x10, true);
-
-	char tickStr[4];
-	snprintf(tickStr, 4, "%d", selectedMenu);
-	hw.display.SetCursor(0, 24);
-	hw.display.WriteString(tickStr, Font_7x10, true);
 }
 
 void setParams() {
@@ -341,38 +324,43 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
 		}
 
-		bool bassTrig {false};
-		bool snareTrig {false};
-		bool hatTrig {false};
-		bool cymbalTrig {false};
+		bool trigs[4] {false};
 
-		if(menustates[4].seq[0] && menustates[4].seq[1]) {
+		if(menustates[4].seq[0] && menustates[4].seq[1]) 
+		{
 	
 			if(clockCount % 6 == 0)
 			{
 				if(System::GetNow() - last > 50) {
-				if(menustates[0].seq[step]) bassTrig = true;
-				if(menustates[1].seq[step]) snareTrig = true;
-				if(menustates[2].seq[step]) hatTrig = true;
-				if(menustates[3].seq[step]) cymbalTrig = true;
+				for (size_t i = 0; i < 4; i++)
+				{
+					if(menustates[i].seq[step] && menustates[4].kvals[6] > Random::GetFloat() * 0.5) {
+						trigs[i] = true;
+						}
+				}
+
 				last = System::GetNow();
 				}
 			}
-		} else {
+		} else 
+		{
 			if(t)
 			{
-				if(menustates[0].seq[step]) bassTrig = t;
-				if(menustates[1].seq[step]) snareTrig = t;
-				if(menustates[2].seq[step]) hatTrig = t;
-				if(menustates[3].seq[step]) cymbalTrig = t;
+				for (size_t i = 0; i < 4; i++)
+				{
+					if(menustates[i].seq[step] && menustates[4].kvals[6] > Random::GetFloat() * 0.5) {
+						trigs[i] = true;
+						}
+				}
+
 				step = (step + 1) % 16;
 			}
 		}
 
-		float bassSig = bd.Process(bassTrig);
-		float snareSig = sd.Process(snareTrig);
-		float hatSig = hh.Process(hatTrig);
-		float cymbalSig = cymbal.Process(cymbalTrig);
+		float bassSig = bd.Process(trigs[0]);
+		float snareSig = sd.Process(trigs[1]);
+		float hatSig = hh.Process(trigs[2]);
+		float cymbalSig = cymbal.Process(trigs[3]);
 
 		float sig = bassSig * menustates[0].kvals[7];
 		sig += snareSig * menustates[1].kvals[7];
@@ -443,7 +431,7 @@ int main(void)
 	menustates[4].kvals[3] = 0.15;
 	menustates[4].kvals[4] = 0.0;
 	menustates[4].kvals[5] = 0.28;
-	menustates[4].kvals[6] = 0.0;
+	menustates[4].kvals[6] = 1.0;
 
 	menustates[4].kvals[7] = 0.8;
 
