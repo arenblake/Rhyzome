@@ -4,35 +4,41 @@
 using namespace daisy;
 using namespace daisysp;
 
-DaisyField                           hw;
-SyntheticBassDrum                    bd;
-SyntheticSnareDrum                   sd;
+DaisyField hw;
+SyntheticBassDrum bd;
+SyntheticSnareDrum sd;
 HiHat<SquareNoise, LinearVCA, false> hh;
 HiHat<RingModNoise, LinearVCA, true> cymbal;
-Metro                                tick;
+Metro tick;
 
 Compressor comp;
-Overdrive  drive;
-Limiter    limiter;
+Overdrive drive;
+Limiter limiter;
 
-int clockCount {0};
-long unsigned int last {System::GetNow()};
+int clockCount{0};
+long unsigned int last{System::GetNow()};
 
-int step {0};
+int step{0};
 bool t;
-bool locked {false};
+bool locked{false};
 
-const int MENU_COUNT {5};
+const int MENU_COUNT{5};
 
-struct MenuState {
-	bool seq[16] {false};
-	float kvals[8] {0.0};
-	bool isLatched[8] {false};
+struct MenuState
+{
+	bool seq[16]{false};
+	float kvals[8]{0.0};
+	bool isLatched[8]{false};
+	bool isMacroed[8]{false};
 };
 
 MenuState menustates[MENU_COUNT];
 
-int selectedMenu {MENU_COUNT - 1};
+float paramArray[4][8];
+
+int selectedMenu{MENU_COUNT - 1};
+
+int macroPage{1};
 
 size_t keyboard_leds[] = {
 	DaisyField::LED_KEY_B1,
@@ -52,69 +58,126 @@ size_t keyboard_leds[] = {
 	DaisyField::LED_KEY_A7,
 	DaisyField::LED_KEY_A8,
 };
-	
-void handleButton() {
-	for(size_t i = 0; i < 16; i++)
-    {
-		if (hw.KeyboardRisingEdge(i)) menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
-		if(selectedMenu == MENU_COUNT - 1) {
-			if (hw.KeyboardRisingEdge(8)) step = 0;
-			if (hw.KeyboardRisingEdge(9)) 
+
+void handleButton()
+{
+	int macroIter{0};
+	for (size_t i = 0; i < 16; i++)
+	{
+		if (hw.KeyboardRisingEdge(i))
+			menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
+		if (selectedMenu == MENU_COUNT - 1)
+		{
+			if (hw.KeyboardRisingEdge(8))
+				step = 0;
+			if (hw.KeyboardRisingEdge(9))
 			{
 				step = 0;
 				clockCount = 0;
 			}
+			if ((i > 3 && i < 8) || i > 11)
+			{
+				if (hw.KeyboardRisingEdge(i))
+					menustates[macroPage].isMacroed[(macroIter + 4) % 8] = !menustates[macroPage].isMacroed[(macroIter + 4) % 8];
+				macroIter++;
+			}
 		}
-    }
+	}
+	macroIter = 0;
 }
 
-void updateLeds() {
-	for(size_t i = 0; i < 16; i++)
-    {
-		if (menustates[selectedMenu].seq[i] == true) hw.led_driver.SetLed(keyboard_leds[i], 1.f);
-		if (menustates[selectedMenu].seq[i] != true) hw.led_driver.SetLed(keyboard_leds[i], 0.f);
-		if (selectedMenu != MENU_COUNT - 1) hw.led_driver.SetLed(keyboard_leds[step], 0.65f);
-    }
-
+void updateLeds()
+{
+	int macroIter{0};
+	for (size_t i = 0; i < 16; i++)
+	{
+		if (selectedMenu != MENU_COUNT - 1)
+		{
+			if (menustates[selectedMenu].seq[i] == true)
+				hw.led_driver.SetLed(keyboard_leds[i], 1.f);
+			if (menustates[selectedMenu].seq[i] != true)
+				hw.led_driver.SetLed(keyboard_leds[i], 0.f);
+			hw.led_driver.SetLed(keyboard_leds[step], 0.65f);
+		}
+		else
+		{
+			hw.led_driver.SetLed(keyboard_leds[2], 0.5f);
+			hw.led_driver.SetLed(keyboard_leds[3], 0.5f);
+			if ((i >= 0 && i < 2) || (i > 7 && i < 12))
+			{
+				if (menustates[selectedMenu].seq[i] == true)
+					hw.led_driver.SetLed(keyboard_leds[i], 1.f);
+				if (menustates[selectedMenu].seq[i] != true)
+					hw.led_driver.SetLed(keyboard_leds[i], 0.f);
+			}
+			if ((i > 3 && i < 8) || (i > 11))
+			{
+				if (menustates[macroPage].isMacroed[macroIter] == true)
+					hw.led_driver.SetLed(keyboard_leds[i], 1.f);
+				if (menustates[macroPage].isMacroed[macroIter] != true)
+					hw.led_driver.SetLed(keyboard_leds[i], 0.f);
+				macroIter++;
+			}
+		}
+	}
+	macroIter = 0;
 	hw.led_driver.SwapBuffersAndTransmit();
 }
 
-void changeMenu() {
+void changeMenu()
+{
 	float prevMenu = selectedMenu;
-	if(hw.sw[0].RisingEdge()) selectedMenu = selectedMenu == 0 ? MENU_COUNT - 2 : (selectedMenu - 1) % (MENU_COUNT - 1);
-	if(hw.sw[1].RisingEdge()) selectedMenu = (selectedMenu + 1) % (MENU_COUNT - 1);
-	if(hw.sw[0].Pressed() && hw.sw[1].Pressed() && !locked) {
+	if (hw.sw[0].RisingEdge())
+		selectedMenu = selectedMenu == 0 ? MENU_COUNT - 2 : (selectedMenu - 1) % (MENU_COUNT - 1);
+	if (hw.sw[1].RisingEdge())
+		selectedMenu = (selectedMenu + 1) % (MENU_COUNT - 1);
+	if (hw.sw[0].Pressed() && hw.sw[1].Pressed() && !locked)
+	{
 		locked = true;
-		if(selectedMenu == MENU_COUNT - 1) {
+		if (selectedMenu == MENU_COUNT - 1)
+		{
 			selectedMenu = 0;
-		} else {
+		}
+		else
+		{
 			selectedMenu = MENU_COUNT - 1;
 		}
 	}
-	if(hw.sw[0].FallingEdge() || hw.sw[1].FallingEdge()) locked = false;
+	if (hw.sw[0].FallingEdge() || hw.sw[1].FallingEdge())
+		locked = false;
 
-	if(prevMenu != selectedMenu) {
-		for(size_t i = 0; i < 8; i++) {
+	if (prevMenu != selectedMenu)
+	{
+		for (size_t i = 0; i < 8; i++)
+		{
 			menustates[selectedMenu].isLatched[i] = false;
 		}
 	}
+
+	if (selectedMenu == MENU_COUNT - 1 && hw.KeyboardRisingEdge(10))
+		macroPage = macroPage == 0 ? 3 : macroPage - 1;
+	if (selectedMenu == MENU_COUNT - 1 && hw.KeyboardRisingEdge(11))
+		macroPage = (macroPage + 1) % 4;
 }
 
-void buildString(const char lStrToWrt[15]) {
+void buildString(const char lStrToWrt[15])
+{
 	char lStr[15];
 	sprintf(lStr, lStrToWrt);
 	hw.display.SetCursor(0, 0);
 	hw.display.WriteString(lStr, Font_6x8, true);
 }
 
-void displayParamLabel(const char lStrToWrt[4], int curX, int curY) {
+void displayParamLabel(const char lStrToWrt[4], int curX, int curY)
+{
 	char lStr[4];
 	sprintf(lStr, lStrToWrt);
 	hw.display.SetCursor(curX, curY);
 	hw.display.WriteString(lStr, Font_6x8, true);
 }
 
-void displayParamValues(int knob, int curX, int curY) {
+void displayParamValues(int knob, int curX, int curY)
+{
 	char pStr[4];
 	int pVal = int((menustates[selectedMenu].kvals[knob]) * 100);
 	snprintf(pStr, 4, "%d", pVal);
@@ -122,17 +185,44 @@ void displayParamValues(int knob, int curX, int curY) {
 	hw.display.WriteString(pStr, Font_7x10, true);
 }
 
-void displayTransport() {
+void displayTransport()
+{
 	char lStr[8];
 	sprintf(lStr, "T:%s", menustates[4].seq[0] ? "Play" : "Stop");
-	hw.display.SetCursor(68, 0);
+	hw.display.SetCursor(40, 0);
 	hw.display.WriteString(lStr, Font_6x8, true);
-
 }
 
-void displayMenu() {
-	hw.display.DrawRect(0,12,hw.display.Width() - 1,hw.display.Height() - 1,true);
-	hw.display.DrawLine(0,hw.display.Height() / 2 + 6, hw.display.Width(), hw.display.Height() / 2 + 6, true);
+void displayMacro()
+{
+	char lStr[8];
+	switch (macroPage)
+	{
+	case 0:
+		sprintf(lStr, "M:Kick");
+		break;
+	case 1:
+		sprintf(lStr, "M:Snr");
+		break;
+	case 2:
+		sprintf(lStr, "M:Hat");
+		break;
+	case 3:
+		sprintf(lStr, "M:Cym");
+		break;
+	default:
+		sprintf(lStr, "Nope");
+		break;
+	}
+
+	hw.display.SetCursor(80, 0);
+	hw.display.WriteString(lStr, Font_6x8, true);
+}
+
+void displayMenu()
+{
+	hw.display.DrawRect(0, 12, hw.display.Width() - 1, hw.display.Height() - 1, true);
+	hw.display.DrawLine(0, hw.display.Height() / 2 + 6, hw.display.Width(), hw.display.Height() / 2 + 6, true);
 	hw.display.DrawLine(hw.display.Width() * 0.75, 12, hw.display.Width() * 0.75, hw.display.Height(), true);
 	hw.display.DrawLine(hw.display.Width() / 2, 12, hw.display.Width() / 2, hw.display.Height(), true);
 	hw.display.DrawLine(hw.display.Width() / 4, 12, hw.display.Width() / 4, hw.display.Height(), true);
@@ -146,7 +236,8 @@ void displayMenu() {
 	displayParamValues(6, hw.display.Width() / 2 + 10, 52);
 	displayParamValues(7, hw.display.Width() * 0.75 + 10, 52);
 
-	switch(selectedMenu) {
+	switch (selectedMenu)
+	{
 	case 0:
 		buildString("Kick");
 		displayParamLabel("freq", 4, 15);
@@ -190,57 +281,69 @@ void displayMenu() {
 		displayParamLabel("Gain", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	case 4:
-		buildString("Master Bus");
+		buildString("M. Bus");
 		displayTransport();
+		displayMacro();
 		displayParamLabel("cmpT", 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() / 4 + 5, 15);
 		displayParamLabel("cmpA", hw.display.Width() / 2 + 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() * 0.75 + 5, 15);
 		displayParamLabel("drv", 8, 41);
+		displayParamLabel("macro", hw.display.Width() / 4 + 2, 41);
 		displayParamLabel("prob", hw.display.Width() / 2 + 5, 41);
 		displayParamLabel("tmpo", hw.display.Width() * 0.75 + 4, 41);
 		break;
 	}
 }
 
-void setParams() {
-	for(size_t i = 0; i < 8; i++) 
+void setParams()
+{
+	for (size_t i = 0; i < 8; i++)
 	{
-		if (menustates[selectedMenu].isLatched[i]) menustates[selectedMenu].kvals[i] = hw.knob[i].Process();
+		if (menustates[selectedMenu].isLatched[i])
+			menustates[selectedMenu].kvals[i] = hw.knob[i].Process();
 	}
 }
 
-void setLatch() {
-	for(size_t i = 0; i < 8; i++) {
-		float prevVal = menustates[selectedMenu].kvals[i] == 0 ?  0.05 : menustates[selectedMenu].kvals[i] == 1 ? 0.95 : menustates[selectedMenu].kvals[i];
-		
-		if(hw.GetKnobValue(i) > prevVal * 0.95 && hw.GetKnobValue(i) < prevVal * 1.05) menustates[selectedMenu].isLatched[i] = true;
+void setLatch()
+{
+	for (size_t i = 0; i < 8; i++)
+	{
+		float prevVal = menustates[selectedMenu].kvals[i] == 0 ? 0.05 : menustates[selectedMenu].kvals[i] == 1 ? 0.95
+																											   : menustates[selectedMenu].kvals[i];
+
+		if (hw.GetKnobValue(i) > prevVal * 0.95 && hw.GetKnobValue(i) < prevVal * 1.05)
+			menustates[selectedMenu].isLatched[i] = true;
 	}
 }
 
-void handleMidi() {
+void handleMidi()
+{
 	hw.midi.Listen();
-	while(hw.midi.HasEvents())
+	while (hw.midi.HasEvents())
 	{
 		MidiEvent me = hw.midi.PopEvent();
 
-		if(me.srt_type == Start) {
+		if (me.srt_type == Start)
+		{
 			clockCount = -1;
 			step = -1;
-			menustates[4].seq[0] = true;			
+			menustates[MENU_COUNT - 1].seq[0] = true;
 		}
 
-		if(me.srt_type == Stop) {
+		if (me.srt_type == Stop)
+		{
 			clockCount = -1;
-			step = -1;			
-			menustates[4].seq[0] = false;	
+			step = -1;
+			menustates[MENU_COUNT - 1].seq[0] = false;
 		}
 
-		if(me.srt_type == TimingClock && menustates[4].seq[0]) {
+		if (me.srt_type == TimingClock && menustates[MENU_COUNT - 1].seq[0])
+		{
 			clockCount++;
 		}
 
-		if(clockCount % 6 == 0 && menustates[4].seq[0])  
+		if (clockCount % 6 == 0 && menustates[MENU_COUNT - 1].seq[0])
 		{
 			step = (step + 1) % 16;
 		}
@@ -252,104 +355,91 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	hw.ProcessAllControls();
 	handleButton();
 	changeMenu();
+	setLatch();
+	setParams();
+
+	bd.SetFreq(paramArray[0][0] * 200 + 15);
+	bd.SetDecay(paramArray[0][1]);
+	bd.SetDirtiness(paramArray[0][2]);
+	bd.SetTone(paramArray[0][3]);
+	bd.SetAccent(paramArray[0][4]);
+	bd.SetFmEnvelopeAmount(paramArray[0][5]);
+	bd.SetFmEnvelopeDecay(paramArray[0][6]);
+
+	sd.SetFreq(paramArray[1][0] * 800 + 15);
+	sd.SetDecay(paramArray[1][1]);
+	sd.SetAccent(paramArray[1][2]);
+	sd.SetSnappy(paramArray[1][3]);
+	sd.SetFmAmount(paramArray[1][4]);
+
+	hh.SetFreq(paramArray[2][0] * 10000);
+	hh.SetDecay(paramArray[2][1]);
+	hh.SetAccent(paramArray[2][2]);
+	hh.SetTone(paramArray[2][3]);
+	hh.SetNoisiness(paramArray[2][4]);
+
+	cymbal.SetFreq(paramArray[3][0] * 10000);
+	cymbal.SetDecay(paramArray[3][1] * 2);
+	cymbal.SetAccent(paramArray[3][2]);
+	cymbal.SetTone(paramArray[3][3]);
+	cymbal.SetNoisiness(paramArray[3][4]);
+
+	float threshRange = fmap(menustates[4].kvals[0], -80, 0);
+	comp.SetThreshold(threshRange);
+	float ratioRange = fmap(menustates[MENU_COUNT - 1].kvals[1], 1.0, 40.0);
+	comp.SetRatio(ratioRange);
+	float attackRange = fmap(menustates[MENU_COUNT - 1].kvals[2], 0.001, 2.0);
+	comp.SetAttack(attackRange);
+	float relRange = fmap(menustates[MENU_COUNT - 1].kvals[3], 0.001, 3.0);
+	comp.SetRelease(relRange);
+
+	float driveRange = fclamp(menustates[MENU_COUNT - 1].kvals[4], 0.25, 0.95);
+	drive.SetDrive(driveRange);
+
+	tick.SetFreq(menustates[MENU_COUNT - 1].kvals[7] * 10);
+
+	float randVals[4];
+
+	for (size_t i = 0; i < 4; i++)
+	{
+		randVals[i] = Random::GetFloat();
+	}
+
 	for (size_t i = 0; i < size; i++)
 	{
 
-		if(menustates[4].seq[0]) t = tick.Process();
+		if (menustates[MENU_COUNT - 1].seq[0])
+			t = tick.Process();
 
-		setLatch();
-		setParams();
+		bool trigs[4]{false};
 
-		switch(selectedMenu) {
-			case 0:
+		if (menustates[MENU_COUNT - 1].seq[0] && menustates[MENU_COUNT - 1].seq[1])
+		{
+
+			if (clockCount % 6 == 0)
 			{
-				bd.SetFreq(menustates[0].kvals[0] * 200 + 15);
-				bd.SetDecay(menustates[0].kvals[1]);
-				bd.SetDirtiness(menustates[0].kvals[2]);
-				bd.SetTone(menustates[0].kvals[3]);
-				bd.SetAccent(menustates[0].kvals[4]);
-				bd.SetFmEnvelopeAmount(menustates[0].kvals[5]);
-				bd.SetFmEnvelopeDecay(menustates[0].kvals[6]);
+				if (System::GetNow() - last > 50)
+				{
+					for (size_t i = 0; i < 4; i++)
+					{
+						bool randVal = menustates[MENU_COUNT - 1].seq[i + 8] ? menustates[MENU_COUNT - 1].kvals[6] > randVals[i] * 0.5 : true;
+						if (menustates[i].seq[step] && randVal)
+							trigs[i] = true;
+					}
 
-				break;
+					last = System::GetNow();
+				}
 			}
-			case 1:
-			{
-				sd.SetFreq(menustates[1].kvals[0] * 800 + 15);
-				sd.SetDecay(menustates[1].kvals[1]);
-				sd.SetAccent(menustates[1].kvals[2]);
-				sd.SetSnappy(menustates[1].kvals[3]);
-				sd.SetFmAmount(menustates[1].kvals[4]);
-
-				break;
-			}
-			case 2:
-			{
-				hh.SetFreq(menustates[2].kvals[0] * 10000);
-				hh.SetDecay(menustates[2].kvals[1]);
-				hh.SetAccent(menustates[2].kvals[2]);
-				hh.SetTone(menustates[2].kvals[3]);
-				hh.SetNoisiness(menustates[2].kvals[4]);
-
-				break;
-			}
-			case 3:
-			{
-				cymbal.SetFreq(menustates[3].kvals[0] * 10000);
-				cymbal.SetDecay(menustates[3].kvals[1] * 2);
-				cymbal.SetAccent(menustates[3].kvals[2]);
-				cymbal.SetTone(menustates[3].kvals[3]);
-				cymbal.SetNoisiness(menustates[3].kvals[4]);
-
-				break;
-			}
-			case 4:
-			{
-				float threshRange = fmap(menustates[4].kvals[0], -80, 0);
-				comp.SetThreshold(threshRange);
-				float ratioRange = fmap(menustates[4].kvals[1], 1.0, 40.0);
-				comp.SetRatio(ratioRange);
-				float attackRange = fmap(menustates[4].kvals[2], 0.001, 2.0);
-				comp.SetAttack(attackRange);
-				float relRange = fmap(menustates[4].kvals[3], 0.001, 3.0);
-				comp.SetRelease(relRange);
-
-				float driveRange = fclamp(menustates[4].kvals[4], 0.25, 0.95);
-				drive.SetDrive(driveRange);
-
-				tick.SetFreq(menustates[4].kvals[7] * 10);
-
-				break;
-			}
-
 		}
-
-		bool trigs[4] {false};
-
-		if(menustates[4].seq[0] && menustates[4].seq[1]) 
+		else
 		{
-	
-			if(clockCount % 6 == 0)
-			{
-				if(System::GetNow() - last > 50) {
-				for (size_t i = 0; i < 4; i++)
-				{
-					bool randVal = menustates[4].seq[i + 8] ? menustates[4].kvals[6] > Random::GetFloat() * 0.5 : true;
-					if(menustates[i].seq[step] && randVal) trigs[i] = true;
-				}
-
-				last = System::GetNow();
-				}
-			}
-		} else 
-		{
-			if(t)
+			if (t)
 			{
 				for (size_t i = 0; i < 4; i++)
 				{
-					bool randVal = menustates[4].seq[i + 8] ? menustates[4].kvals[6] > Random::GetFloat() * 0.5 : true;
-					if(menustates[i].seq[step] && randVal) trigs[i] = true;
-
+					bool randVal = menustates[MENU_COUNT - 1].seq[i + 8] ? menustates[MENU_COUNT - 1].kvals[6] > randVals[i] * 0.5 : true;
+					if (menustates[i].seq[step] && randVal)
+						trigs[i] = true;
 				}
 
 				step = (step + 1) % 16;
@@ -371,7 +461,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
 		limiter.ProcessBlock(&sig, 1, 2);
 
-        out[0][i] = out[1][i] = sig;
+		out[0][i] = out[1][i] = sig;
 	}
 }
 
@@ -383,11 +473,10 @@ int main(void)
 
 	float sample_rate = hw.AudioSampleRate();
 
-    tick.Init(8.f, sample_rate);
+	tick.Init(8.f, sample_rate);
 
-
-    bd.Init(sample_rate);
-    menustates[0].kvals[0] = 0.15;
+	bd.Init(sample_rate);
+	menustates[0].kvals[0] = 0.15;
 	menustates[0].kvals[1] = 0.6;
 	menustates[0].kvals[2] = 1.0;
 	menustates[0].kvals[3] = 0.38;
@@ -424,28 +513,39 @@ int main(void)
 	drive.Init();
 	comp.SetThreshold(0.0);
 	drive.SetDrive(0.25);
-	menustates[4].kvals[0] = 1.0;
-	menustates[4].kvals[1] = 0.0;
-	menustates[4].kvals[2] = 0.1;
-	menustates[4].kvals[3] = 0.15;
-	menustates[4].kvals[4] = 0.0;
-	menustates[4].kvals[5] = 0.28;
-	menustates[4].kvals[6] = 1.0;
+	menustates[MENU_COUNT - 1].kvals[0] = 1.0;
+	menustates[MENU_COUNT - 1].kvals[1] = 0.0;
+	menustates[MENU_COUNT - 1].kvals[2] = 0.1;
+	menustates[MENU_COUNT - 1].kvals[3] = 0.15;
+	menustates[MENU_COUNT - 1].kvals[4] = 0.0;
+	menustates[MENU_COUNT - 1].kvals[5] = 0.5;
+	menustates[MENU_COUNT - 1].kvals[6] = 1.0;
 
-	menustates[4].kvals[7] = 0.8;
+	menustates[MENU_COUNT - 1].kvals[7] = 0.8;
 
 	limiter.Init();
 
 	hw.StartAdc();
 	hw.StartAudio(AudioCallback);
 
-	while(1) {
-		if(menustates[4].seq[1]) handleMidi();
-		
+	while (1)
+	{
+		if (menustates[MENU_COUNT - 1].seq[1])
+			handleMidi();
+
+		float macroOffset = menustates[4].kvals[5] - 0.5;
+
+		for (size_t i = 0; i < 4; i++)
+		{
+			for (size_t j = 0; j < 8; j++)
+			{
+				paramArray[i][j] = menustates[i].isMacroed[j] ? fclamp(menustates[i].kvals[j] + (macroOffset), 0.0, 1.0) : menustates[i].kvals[j];
+			}
+		}
+
 		updateLeds();
 		hw.display.Fill(false);
 		displayMenu();
-
 
 		hw.display.Update();
 	}
