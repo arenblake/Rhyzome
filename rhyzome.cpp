@@ -23,6 +23,7 @@ bool t;
 bool locked{false};
 
 const int MENU_COUNT{5};
+const int MAX_MACROED_PARAMS{10};
 
 struct MenuState
 {
@@ -38,7 +39,8 @@ float paramArray[4][8];
 
 int selectedMenu{MENU_COUNT - 1};
 
-int macroPage{1};
+int macroPage{0};
+int macroedParamCount{0};
 
 size_t keyboard_leds[] = {
 	DaisyField::LED_KEY_B1,
@@ -78,7 +80,18 @@ void handleButton()
 			if ((i > 3 && i < 8) || i > 11)
 			{
 				if (hw.KeyboardRisingEdge(i))
-					menustates[macroPage].isMacroed[(macroIter + 4) % 8] = !menustates[macroPage].isMacroed[(macroIter + 4) % 8];
+				{
+					if (!menustates[macroPage].isMacroed[(macroIter + 4) % 8] && macroedParamCount < MAX_MACROED_PARAMS)
+					{
+						menustates[macroPage].isMacroed[(macroIter + 4) % 8] = !menustates[macroPage].isMacroed[(macroIter + 4) % 8];
+						macroedParamCount++;
+					}
+					else if (menustates[macroPage].isMacroed[(macroIter + 4) % 8])
+					{
+						menustates[macroPage].isMacroed[(macroIter + 4) % 8] = !menustates[macroPage].isMacroed[(macroIter + 4) % 8];
+						macroedParamCount--;
+					}
+				}
 				macroIter++;
 			}
 		}
@@ -350,6 +363,19 @@ void handleMidi()
 	}
 }
 
+inline float Constrain(float var, float min, float max)
+{
+	if (var < min)
+	{
+		var = min;
+	}
+	else if (var > max)
+	{
+		var = max;
+	}
+	return var;
+}
+
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
 	hw.ProcessAllControls();
@@ -357,6 +383,16 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	changeMenu();
 	setLatch();
 	setParams();
+
+	float macroOffset = menustates[4].kvals[5] - 0.5;
+
+	for (size_t i = 0; i < 4; i++)
+	{
+		for (size_t j = 0; j < 8; j++)
+		{
+			paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? fclamp(menustates[i].kvals[j] + (macroOffset), 0.0, 1.0) : menustates[i].kvals[j], 0.0F, 1.0F);
+		}
+	}
 
 	bd.SetFreq(paramArray[0][0] * 200 + 15);
 	bd.SetDecay(paramArray[0][1]);
@@ -379,7 +415,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	hh.SetNoisiness(paramArray[2][4]);
 
 	cymbal.SetFreq(paramArray[3][0] * 10000);
-	cymbal.SetDecay(paramArray[3][1] * 2);
+	cymbal.SetDecay(paramArray[3][1]);
 	cymbal.SetAccent(paramArray[3][2]);
 	cymbal.SetTone(paramArray[3][3]);
 	cymbal.SetNoisiness(paramArray[3][4]);
@@ -402,7 +438,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
 	for (size_t i = 0; i < 4; i++)
 	{
-		randVals[i] = Random::GetFloat();
+		randVals[i] = Random::GetFloat(0.0F, 1.0F);
 	}
 
 	for (size_t i = 0; i < size; i++)
@@ -468,7 +504,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 int main(void)
 {
 	hw.Init(true);
-	hw.SetAudioBlockSize(48); // number of samples handled per callback
+	hw.SetAudioBlockSize(64); // number of samples handled per callback
 	hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_32KHZ);
 
 	float sample_rate = hw.AudioSampleRate();
@@ -532,16 +568,6 @@ int main(void)
 	{
 		if (menustates[MENU_COUNT - 1].seq[1])
 			handleMidi();
-
-		float macroOffset = menustates[4].kvals[5] - 0.5;
-
-		for (size_t i = 0; i < 4; i++)
-		{
-			for (size_t j = 0; j < 8; j++)
-			{
-				paramArray[i][j] = menustates[i].isMacroed[j] ? fclamp(menustates[i].kvals[j] + (macroOffset), 0.0, 1.0) : menustates[i].kvals[j];
-			}
-		}
 
 		updateLeds();
 		hw.display.Fill(false);
