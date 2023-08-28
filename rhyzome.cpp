@@ -23,7 +23,7 @@ bool t;
 bool locked{false};
 
 const int MENU_COUNT{5};
-const int MAX_MACROED_PARAMS{10};
+const int MAX_MACROED_PARAMS{8};
 
 struct MenuState
 {
