@@ -25,7 +25,7 @@ bool t;
 bool locked{false};
 
 const int MENU_COUNT{5};
-const int MAX_MACROED_PARAMS{8};
+const int MAX_MACROED_PARAMS{12};
 
 struct MenuState
 {
@@ -418,7 +418,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	{
 		for (size_t j = 0; j < 8; j++)
 		{
-			paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? fclamp(menustates[i].kvals[j] + (macroOffset), 0.0, 1.0) : menustates[i].kvals[j], 0.0F, 1.0F);
+			paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? menustates[i].kvals[j] + (macroOffset) : menustates[i].kvals[j], 0.0F, 1.0F);
 		}
 	}
 
@@ -439,7 +439,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	hh.SetFreq(paramArray[2][0] * 10000);
 	hh.SetDecay(paramArray[2][1]);
 	hh.SetAccent(paramArray[2][2]);
-	hh.SetTone(paramArray[2][3]);
+	hh.SetTone(Constrain(paramArray[2][3], 0.0F, 0.93F));
 	hh.SetNoisiness(paramArray[2][4]);
 
 	cymbal.SetFreq(paramArray[3][0] * 10000);
@@ -493,6 +493,7 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
 					last = System::GetNow();
 				}
+				clockCount = 6;
 			}
 		}
 		else
