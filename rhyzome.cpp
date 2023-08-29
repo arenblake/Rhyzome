@@ -4,6 +4,8 @@
 using namespace daisy;
 using namespace daisysp;
 
+CpuLoadMeter loadMeter;
+
 DaisyField hw;
 SyntheticBassDrum bd;
 SyntheticSnareDrum sd;
@@ -206,6 +208,31 @@ void displayTransport()
 	hw.display.WriteString(lStr, Font_6x8, true);
 }
 
+void displayDebug()
+{
+	const float avgLoad = loadMeter.GetAvgCpuLoad();
+	const float maxLoad = loadMeter.GetMaxCpuLoad();
+	const float minLoad = loadMeter.GetMinCpuLoad();
+
+	char aStr[4];
+	int aVal = int(avgLoad * 100);
+	snprintf(aStr, 4, "%d", aVal);
+	hw.display.SetCursor(40, 0);
+	hw.display.WriteString(aStr, Font_6x8, true);
+
+	char mStr[4];
+	int mVal = int(minLoad * 100);
+	snprintf(mStr, 4, "%d", mVal);
+	hw.display.SetCursor(55, 0);
+	hw.display.WriteString(mStr, Font_6x8, true);
+
+	char maxStr[4];
+	int maxVal = int(maxLoad * 100);
+	snprintf(maxStr, 4, "%d", maxVal);
+	hw.display.SetCursor(65, 0);
+	hw.display.WriteString(maxStr, Font_6x8, true);
+}
+
 void displayMacro()
 {
 	char lStr[8];
@@ -378,6 +405,7 @@ inline float Constrain(float var, float min, float max)
 
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
+	loadMeter.OnBlockStart();
 	hw.ProcessAllControls();
 	handleButton();
 	changeMenu();
@@ -498,17 +526,19 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		limiter.ProcessBlock(&sig, 1, 2);
 
 		out[0][i] = out[1][i] = sig;
+		loadMeter.OnBlockEnd();
 	}
 }
 
 int main(void)
 {
 	hw.Init(true);
-	hw.SetAudioBlockSize(64); // number of samples handled per callback
+	hw.SetAudioBlockSize(32); // number of samples handled per callback
 	hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_32KHZ);
 
 	float sample_rate = hw.AudioSampleRate();
 
+	loadMeter.Init(sample_rate, hw.AudioBlockSize());
 	tick.Init(8.f, sample_rate);
 
 	bd.Init(sample_rate);
