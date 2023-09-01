@@ -30,7 +30,8 @@ const int MAX_MACROED_PARAMS{12};
 struct MenuState
 {
 	bool seq[16]{false};
-	float kvals[8]{0.0};
+	float plockVals[16]{0.0F};
+	float kvals[8]{0.0F};
 	bool isLatched[8]{false};
 	bool isMacroed[8]{false};
 };
@@ -68,8 +69,6 @@ void handleButton()
 	int macroIter{0};
 	for (size_t i = 0; i < 16; i++)
 	{
-		if (hw.KeyboardRisingEdge(i))
-			menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
 		if (selectedMenu == MENU_COUNT - 1)
 		{
 			if (hw.KeyboardRisingEdge(8))
@@ -79,6 +78,8 @@ void handleButton()
 				step = 0;
 				clockCount = 0;
 			}
+			if (hw.KeyboardRisingEdge(i))
+				menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
 			if ((i > 3 && i < 8) || i > 11)
 			{
 				if (hw.KeyboardRisingEdge(i))
@@ -96,6 +97,11 @@ void handleButton()
 				}
 				macroIter++;
 			}
+		}
+		else
+		{
+			if (hw.KeyboardFallingEdge(i))
+				menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
 		}
 	}
 	macroIter = 0;
