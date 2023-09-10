@@ -19,10 +19,13 @@ Limiter limiter;
 
 int clockCount{0};
 long unsigned int last{System::GetNow()};
+long unsigned int pressTime{System::GetNow()};
 
 int step{0};
 bool t;
 bool locked{false};
+bool plockingState{false};
+int lockingStep{0};
 
 const int MENU_COUNT{5};
 const int MAX_MACROED_PARAMS{12};
@@ -30,9 +33,10 @@ const int MAX_MACROED_PARAMS{12};
 struct MenuState
 {
 	bool seq[16]{false};
-	float plockVals[16]{0.0F};
+	float plockVals[16][8]{0.0F};
 	float kvals[8]{0.0F};
 	bool isLatched[8]{false};
+	bool isLatchedPlock[8]{false};
 	bool isMacroed[8]{false};
 };
 
@@ -67,6 +71,8 @@ size_t keyboard_leds[] = {
 void handleButton()
 {
 	int macroIter{0};
+	bool anyBtnPressed{false};
+
 	for (size_t i = 0; i < 16; i++)
 	{
 		if (selectedMenu == MENU_COUNT - 1)
@@ -100,11 +106,42 @@ void handleButton()
 		}
 		else
 		{
-			if (hw.KeyboardFallingEdge(i))
+			if (hw.KeyboardRisingEdge(i))
+				pressTime = System::GetNow();
+			if (hw.KeyboardState(i) && menustates[selectedMenu].seq[(i + 8) % 16])
+			{
+				if (System::GetNow() - pressTime > 500)
+				{
+					anyBtnPressed = true;
+					plockingState = true;
+					lockingStep = (i + 8) % 16;
+					hw.display.DrawCircle(120, 4, 3, true);
+				}
+				// hw.display.DrawCircle(100, 4, 3, true);
+			}
+
+			// if (hw.KeyboardFallingEdge(i) && !anyBtnPressed)
+			// 	menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
+
+			if (hw.KeyboardRisingEdge(i))
 				menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
+			// {
+			// 	if (menustates[selectedMenu].seq[(i + 8) % 16])
+			// 	{
+			// 		if (!plockingState)
+			// 			menustates[selectedMenu].seq[(i + 8) % 16] = false;
+			// 	}
+			// 	else
+			// 	{
+			// 		menustates[selectedMenu].seq[(i + 8) % 16] = true;
+			// 	}
+			// }
 		}
 	}
+	if (!anyBtnPressed)
+		plockingState = false;
 	macroIter = 0;
+	hw.display.DrawCircle(100, 4, 3, anyBtnPressed);
 }
 
 void updateLeds()
@@ -172,6 +209,7 @@ void changeMenu()
 		for (size_t i = 0; i < 8; i++)
 		{
 			menustates[selectedMenu].isLatched[i] = false;
+			menustates[selectedMenu].isLatchedPlock[i] = false;
 		}
 	}
 
@@ -200,7 +238,7 @@ void displayParamLabel(const char lStrToWrt[4], int curX, int curY)
 void displayParamValues(int knob, int curX, int curY)
 {
 	char pStr[4];
-	int pVal = int((menustates[selectedMenu].kvals[knob]) * 100);
+	int pVal = int((plockingState ? menustates[selectedMenu].plockVals[lockingStep][knob] : menustates[selectedMenu].kvals[knob]) * 100);
 	snprintf(pStr, 4, "%d", pVal);
 	hw.display.SetCursor(curX, curY);
 	hw.display.WriteString(pStr, Font_7x10, true);
@@ -346,8 +384,11 @@ void setParams()
 {
 	for (size_t i = 0; i < 8; i++)
 	{
-		if (menustates[selectedMenu].isLatched[i])
+		if (menustates[selectedMenu].isLatched[i] && !plockingState)
 			menustates[selectedMenu].kvals[i] = hw.knob[i].Process();
+
+		if (menustates[selectedMenu].isLatchedPlock[i] && plockingState)
+			menustates[selectedMenu].plockVals[lockingStep][i] = hw.knob[i].Process();
 	}
 }
 
@@ -358,8 +399,14 @@ void setLatch()
 		float prevVal = menustates[selectedMenu].kvals[i] == 0 ? 0.05 : menustates[selectedMenu].kvals[i] == 1 ? 0.95
 																											   : menustates[selectedMenu].kvals[i];
 
-		if (hw.GetKnobValue(i) > prevVal * 0.95 && hw.GetKnobValue(i) < prevVal * 1.05)
-			menustates[selectedMenu].isLatched[i] = true;
+		float plockPrevVal = menustates[selectedMenu].plockVals[lockingStep][i] == 0 ? 0.05 : menustates[selectedMenu].plockVals[lockingStep][i] == 1 ? 0.95
+																																					  : menustates[selectedMenu].plockVals[lockingStep][i];
+
+		if ((hw.GetKnobValue(i) > prevVal * 0.95 && hw.GetKnobValue(i) < prevVal * 1.05))
+			menustates[selectedMenu].isLatched[i] = !plockingState;
+
+		if ((hw.GetKnobValue(i) > plockPrevVal * 0.95 && hw.GetKnobValue(i) < plockPrevVal * 1.05) && plockingState)
+			menustates[selectedMenu].isLatchedPlock[i] = true;
 	}
 }
 
@@ -424,7 +471,16 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	{
 		for (size_t j = 0; j < 8; j++)
 		{
-			paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? menustates[i].kvals[j] + (macroOffset) : menustates[i].kvals[j], 0.0F, 1.0F);
+			if (menustates[i].plockVals[step][j] != 0.0f && menustates[i].seq[step])
+			{
+				paramArray[i][j] = menustates[i].plockVals[step][j];
+				// paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? menustates[i].plockVals[step][j] + (macroOffset) : menustates[i].plockVals[step][j], 0.0F, 1.0F);
+			}
+			else
+			{
+
+				paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? menustates[i].kvals[j] + (macroOffset) : menustates[i].kvals[j], 0.0F, 1.0F);
+			}
 		}
 	}
 
