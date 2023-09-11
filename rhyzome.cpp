@@ -26,6 +26,7 @@ bool t;
 bool locked{false};
 bool plockingState{false};
 int lockingStep{0};
+bool justStarted{false};
 
 const int MENU_COUNT{5};
 const int MAX_MACROED_PARAMS{12};
@@ -78,10 +79,15 @@ void handleButton()
 		if (selectedMenu == MENU_COUNT - 1)
 		{
 			if (hw.KeyboardRisingEdge(8))
-				step = 0;
+			{
+				step = -1;
+				tick.Reset();
+				if (!menustates[selectedMenu].seq[0])
+					justStarted = true;
+			}
 			if (hw.KeyboardRisingEdge(9))
 			{
-				step = 0;
+				step = -1;
 				clockCount = 0;
 			}
 			if (hw.KeyboardRisingEdge(i))
@@ -108,40 +114,33 @@ void handleButton()
 		{
 			if (hw.KeyboardRisingEdge(i))
 				pressTime = System::GetNow();
-			if (hw.KeyboardState(i) && menustates[selectedMenu].seq[(i + 8) % 16])
+
+			if (hw.KeyboardState(i) && System::GetNow() - pressTime > 300)
 			{
-				if (System::GetNow() - pressTime > 500)
+				if (menustates[selectedMenu].seq[(i + 8) % 16])
 				{
 					anyBtnPressed = true;
 					plockingState = true;
 					lockingStep = (i + 8) % 16;
 					hw.display.DrawCircle(120, 4, 3, true);
 				}
-				// hw.display.DrawCircle(100, 4, 3, true);
+				else
+				{
+					hw.display.DrawCircle(120, 4, 3, true);
+					for (size_t j = 0; j < 8; j++)
+					{
+						menustates[selectedMenu].plockVals[(i + 8) % 16][j] = 0;
+					}
+				}
 			}
-
-			// if (hw.KeyboardFallingEdge(i) && !anyBtnPressed)
-			// 	menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
 
 			if (hw.KeyboardRisingEdge(i))
 				menustates[selectedMenu].seq[(i + 8) % 16] = !menustates[selectedMenu].seq[(i + 8) % 16];
-			// {
-			// 	if (menustates[selectedMenu].seq[(i + 8) % 16])
-			// 	{
-			// 		if (!plockingState)
-			// 			menustates[selectedMenu].seq[(i + 8) % 16] = false;
-			// 	}
-			// 	else
-			// 	{
-			// 		menustates[selectedMenu].seq[(i + 8) % 16] = true;
-			// 	}
-			// }
 		}
 	}
 	if (!anyBtnPressed)
 		plockingState = false;
 	macroIter = 0;
-	hw.display.DrawCircle(100, 4, 3, anyBtnPressed);
 }
 
 void updateLeds()
@@ -254,27 +253,32 @@ void displayTransport()
 
 void displayDebug()
 {
-	const float avgLoad = loadMeter.GetAvgCpuLoad();
-	const float maxLoad = loadMeter.GetMaxCpuLoad();
-	const float minLoad = loadMeter.GetMinCpuLoad();
+	// const float avgLoad = loadMeter.GetAvgCpuLoad();
+	// const float maxLoad = loadMeter.GetMaxCpuLoad();
+	// const float minLoad = loadMeter.GetMinCpuLoad();
 
-	char aStr[4];
-	int aVal = int(avgLoad * 100);
-	snprintf(aStr, 4, "%d", aVal);
-	hw.display.SetCursor(40, 0);
-	hw.display.WriteString(aStr, Font_6x8, true);
+	// char aStr[4];
+	// int aVal = int(avgLoad * 100);
+	// snprintf(aStr, 4, "%d", aVal);
+	// hw.display.SetCursor(40, 0);
+	// hw.display.WriteString(aStr, Font_6x8, true);
 
-	char mStr[4];
-	int mVal = int(minLoad * 100);
-	snprintf(mStr, 4, "%d", mVal);
-	hw.display.SetCursor(55, 0);
-	hw.display.WriteString(mStr, Font_6x8, true);
+	// char mStr[4];
+	// int mVal = int(minLoad * 100);
+	// snprintf(mStr, 4, "%d", mVal);
+	// hw.display.SetCursor(55, 0);
+	// hw.display.WriteString(mStr, Font_6x8, true);
 
-	char maxStr[4];
-	int maxVal = int(maxLoad * 100);
-	snprintf(maxStr, 4, "%d", maxVal);
+	// char maxStr[4];
+	// int maxVal = int(maxLoad * 100);
+	// snprintf(maxStr, 4, "%d", maxVal);
+	// hw.display.SetCursor(65, 0);
+	// hw.display.WriteString(maxStr, Font_6x8, true);
+
+	char stepStr[4];
+	sprintf(stepStr, "%d", step);
 	hw.display.SetCursor(65, 0);
-	hw.display.WriteString(maxStr, Font_6x8, true);
+	hw.display.WriteString(stepStr, Font_6x8, true);
 }
 
 void displayMacro()
@@ -367,6 +371,7 @@ void displayMenu()
 	case 4:
 		buildString("M. Bus");
 		displayTransport();
+		// displayDebug();
 		displayMacro();
 		displayParamLabel("cmpT", 5, 15);
 		displayParamLabel("cmpR", hw.display.Width() / 4 + 5, 15);
@@ -478,7 +483,6 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 			}
 			else
 			{
-
 				paramArray[i][j] = Constrain(menustates[i].isMacroed[j] ? menustates[i].kvals[j] + (macroOffset) : menustates[i].kvals[j], 0.0F, 1.0F);
 			}
 		}
@@ -491,24 +495,28 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 	bd.SetAccent(paramArray[0][4]);
 	bd.SetFmEnvelopeAmount(paramArray[0][5]);
 	bd.SetFmEnvelopeDecay(paramArray[0][6]);
+	float bassGain = paramArray[0][7];
 
 	sd.SetFreq(paramArray[1][0] * 800 + 15);
 	sd.SetDecay(paramArray[1][1]);
 	sd.SetAccent(paramArray[1][2]);
 	sd.SetSnappy(paramArray[1][3]);
 	sd.SetFmAmount(paramArray[1][4]);
+	float snareGain = paramArray[1][7];
 
 	hh.SetFreq(paramArray[2][0] * 10000);
 	hh.SetDecay(paramArray[2][1]);
 	hh.SetAccent(paramArray[2][2]);
 	hh.SetTone(Constrain(paramArray[2][3], 0.0F, 0.93F));
 	hh.SetNoisiness(paramArray[2][4]);
+	float hatGain = paramArray[2][7];
 
 	cymbal.SetFreq(paramArray[3][0] * 10000);
 	cymbal.SetDecay(paramArray[3][1]);
 	cymbal.SetAccent(paramArray[3][2]);
 	cymbal.SetTone(paramArray[3][3]);
 	cymbal.SetNoisiness(paramArray[3][4]);
+	float cymGain = paramArray[3][7];
 
 	float threshRange = fmap(menustates[4].kvals[0], -80, 0);
 	comp.SetThreshold(threshRange);
@@ -539,10 +547,10 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 
 		bool trigs[4]{false};
 
-		if (menustates[MENU_COUNT - 1].seq[0] && menustates[MENU_COUNT - 1].seq[1])
+		if (menustates[MENU_COUNT - 1].seq[0])
 		{
 
-			if (clockCount % 6 == 0)
+			if (clockCount % 6 == 0 && menustates[MENU_COUNT - 1].seq[1])
 			{
 				if (System::GetNow() - last > 50)
 				{
@@ -557,19 +565,17 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 				}
 				clockCount = 6;
 			}
-		}
-		else
-		{
-			if (t)
+
+			if ((justStarted || t) && !menustates[MENU_COUNT - 1].seq[1])
 			{
+				justStarted = false;
+				step = (step + 1) % 16;
 				for (size_t i = 0; i < 4; i++)
 				{
 					bool randVal = menustates[MENU_COUNT - 1].seq[i + 8] ? menustates[MENU_COUNT - 1].kvals[6] > randVals[i] * 0.5 : true;
 					if (menustates[i].seq[step] && randVal)
 						trigs[i] = true;
 				}
-
-				step = (step + 1) % 16;
 			}
 		}
 
@@ -578,10 +584,10 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
 		float hatSig = hh.Process(trigs[2]);
 		float cymbalSig = cymbal.Process(trigs[3]);
 
-		float sig = bassSig * menustates[0].kvals[7];
-		sig += snareSig * menustates[1].kvals[7];
-		sig += hatSig * menustates[2].kvals[7];
-		sig += cymbalSig * menustates[3].kvals[7];
+		float sig = bassSig * bassGain;
+		sig += snareSig * snareGain;
+		sig += hatSig * hatGain;
+		sig += cymbalSig * cymGain;
 
 		sig = comp.Process(sig);
 		sig = drive.Process(sig);
